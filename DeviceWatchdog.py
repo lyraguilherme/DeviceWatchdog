@@ -54,7 +54,6 @@ def ssh_tester(device_ip, ssh_user, ssh_pass, sshq):
 def DeviceWatchdog():
     global stop_animation
     try: 
-
         # reads the JSON file
         with open("my_devices.json", "r") as f:
             devices_to_test = json.load(f)
@@ -105,7 +104,6 @@ def DeviceWatchdog():
         print('\nExiting script...')
     finally:
         print('Done.')
-
 
 def main():
     DeviceWatchdog()
