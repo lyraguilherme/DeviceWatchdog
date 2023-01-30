@@ -1,0 +1,33 @@
+{
+    "DEVICE-01": {
+        "device_ip": "100.64.0.1",
+        "username": "your_username",
+        "password": "your_password",
+        "os": "iosxe"
+    },
+    "DEVICE-02": {
+        "device_ip": "100.64.0.2",
+        "username": "your_username",
+        "password": "your_password",
+        "os": "iosxe"
+    },
+    "DEVICE-03": {
+        "device_ip": "100.64.0.3",
+        "username": "your_username",
+        "password": "your_password",
+        "os": "iosxe"
+    },
+    "DEVICE-04": {
+        "device_ip": "100.64.0.4",
+        "username": "your_username",
+        "password": "your_password",
+        "os": "iosxe"
+    },
+    "DEVICE-05": {
+        "device_ip": "100.64.0.5",
+        "username": "your_username",
+        "password": "your_password",
+        "os": "iosxe"
+    }
+} 
+
