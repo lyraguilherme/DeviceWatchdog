@@ -2,12 +2,10 @@ import sys
 import os
 import time
 import ping3
-import subprocess
 import itertools
-import curses
-import paramiko
 import json
 import threading
+from netmiko import ConnectHandler, NetMikoAuthenticationException, NetMikoTimeoutException
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 from datetime import datetime
@@ -20,12 +18,12 @@ def animated_progress():
     for c in itertools.cycle(['|', '/', '-', '\\']):
         if stop_animation:
             break
-        print(f'\r[{c}] Running tests... ', end='')
+        print(f'\r[{c}] Running tests... use CTRL+C to stop.', end='')
         time.sleep(0.1)
+    print('\r', end='')
 
 def ping_tester(ping_destination, pingq):
     try:
-        # use the ping() function from ping3 library
         response_time = ping3.ping(ping_destination, timeout=1)
         if response_time is not None:
             pingq.put("OK")
@@ -34,70 +32,60 @@ def ping_tester(ping_destination, pingq):
     except Exception as e:
         pingq.put("FAIL")
 
-def ssh_tester(device_ip, ssh_user, ssh_pass, sshq):
+def ssh_tester(device_ip, ssh_user, ssh_pass, sshq, device_type='cisco_ios'):
+    device = {
+        'device_type': device_type,
+        'ip': device_ip,
+        'username': ssh_user,
+        'password': ssh_pass,
+    }
+    
     try:
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(device_ip, username=ssh_user, password=ssh_pass, timeout=1)
+        connection = ConnectHandler(**device)
         sshq.put("OK")
-    except paramiko.ssh_exception.AuthenticationException:
+        connection.disconnect()
+    except NetMikoAuthenticationException:
         sshq.put("Authentication Exception")
-    except paramiko.ssh_exception.NoValidConnectionsError:
+    except NetMikoTimeoutException:
         sshq.put("Connection Timeout")
-    except paramiko.ssh_exception.SSHException:
-        sshq.put("SSH Exception")
-    except Exception as unknown_error:
-        sshq.put("Unknown Error")
-    finally:
-        client.close()
+    except Exception as e:
+        sshq.put(f"SSH Exception: {e}")
 
 def DeviceWatchdog():
     global stop_animation
-    try: 
-        # reads the JSON file
+    try:
         with open("my_devices.json", "r") as f:
             devices_to_test = json.load(f)
-        f.close()        
 
-        # defines the 'results_table' headers
-        results_table = PrettyTable(['Hostname(JSON)', 'Device IP', 'Ping Test', 'SSH Test', 'Timestamp'])
+        results_table = PrettyTable(['Host', 'Device IP', 'Ping Test', 'SSH Test', 'Time (UTC)'])
         pingq = Queue()
         sshq = Queue()
 
-        # create an instance of ThreadPoolExecutor
         with ThreadPoolExecutor() as executor:
+            # Start animation in a separate thread
+            t = threading.Thread(target=animated_progress)
+            t.start()
+
             while True:
-                print('\n[#] Script will run continuously. Use CTRL+C to exit.')
-
-                # starts animation
-                t = threading.Thread(target=animated_progress)
-                t.start()
-
-                # runs connectivity tests
                 for device, values in devices_to_test.items():
                     device_ip = values["device_ip"]
                     ssh_user = values["username"]
                     ssh_pass = values["password"]
                     
-                    # submit the ping and ssh tester funcions using threading
                     ping_future = executor.submit(ping_tester, device_ip, pingq)
                     ssh_future = executor.submit(ssh_tester, device_ip, ssh_user, ssh_pass, sshq)
                     
-                    # wait for all threads to complete
-                    ping_future.result()
-                    ssh_future.result()
-                    pingstatus = pingq.get()
-                    sshstatus = sshq.get()
-                    now = datetime.now()
+                    pingstatus = ping_future.result()
+                    sshstatus = ssh_future.result()
                     
-                    # adds test results from each device as a row on 'results_table'
-                    results_table.add_row([device, device_ip, pingstatus, sshstatus, now.strftime("%Y-%m-%d %H:%M:%S")])
+                    now = datetime.utcnow()
+                    results_table.add_row([device, device_ip, pingq.get(), sshq.get(), now.strftime("%Y-%m-%d %H:%M:%S")])
 
-                time.sleep(3)
                 os.system('cls' if os.name == 'nt' else 'clear')
                 print(results_table)
                 results_table.clear_rows()
-            executor.shutdown()
+
+                time.sleep(3)
 
     except KeyboardInterrupt:
         stop_animation = True
