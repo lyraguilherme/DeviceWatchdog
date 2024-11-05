@@ -62,7 +62,7 @@ def ssh_tester(device_ip, ssh_user, ssh_pass, sshq, device_type='cisco_ios'):
 def DeviceWatchdog():
     global stop_animation
     try:
-        with open("odonto.json", "r") as f:
+        with open("my_devices.json", "r") as f:
             devices_to_test = json.load(f)
 
         results_table = PrettyTable(['Host', 'Device IP', 'Ping Test', 'SSH Test', 'Time (UTC)'])
